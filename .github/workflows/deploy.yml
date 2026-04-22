@@ -1,4 +1,3 @@
-
 name: Build and Deploy to GKE
 
 on:
@@ -28,34 +27,42 @@ jobs:
         with:
           credentials_json: '${{ secrets.GCP_SA_KEY }}'
 
-      # 🔧 Setup gcloud
+      # 🔧 Setup Cloud SDK
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
 
-      # 🐳 Configurar Docker para Artifact Registry
+      # 🧩 FIX IMPORTANTE: plugin GKE auth
+      - name: Install GKE auth plugin
+        run: |
+          gcloud components install gke-gcloud-auth-plugin
+          echo "USE_GKE_GCLOUD_AUTH_PLUGIN=True" >> $GITHUB_ENV
+
+      # 🐳 Docker login a Artifact Registry
       - name: Configure Docker
         run: |
-          gcloud auth configure-docker $REGION-docker.pkg.dev
+          gcloud auth configure-docker $REGION-docker.pkg.dev --quiet
 
       # 🏗️ Build imagen
       - name: Build Docker image
         run: |
           docker build -t $REGION-docker.pkg.dev/$PROJECT_ID/$REPOSITORY/$IMAGE:${{ github.sha }} .
 
-      # 📤 Push a Artifact Registry
+      # 📤 Push imagen
       - name: Push Docker image
         run: |
           docker push $REGION-docker.pkg.dev/$PROJECT_ID/$REPOSITORY/$IMAGE:${{ github.sha }}
 
-      # 🔗 Obtener credenciales de GKE
+      # 🔗 Credenciales GKE
       - name: Get GKE credentials
         run: |
           gcloud container clusters get-credentials $CLUSTER_NAME \
             --zone $CLUSTER_ZONE \
             --project $PROJECT_ID
+        env:
+          USE_GKE_GCLOUD_AUTH_PLUGIN: True
 
-      # 🚢 Deploy a Kubernetes
+      # 🚢 Deploy
       - name: Deploy to GKE
         run: |
-          kubectl set image deployment/app app=$REGION-docker.pkg.dev/$PROJECT_ID/$REPOSITORY/$IMAGE:${{ github.sha }} || \
           kubectl apply -f k8s/
+          kubectl set image deployment/app app=$REGION-docker.pkg.dev/$PROJECT_ID/$REPOSITORY/$IMAGE:${{ github.sha }}
