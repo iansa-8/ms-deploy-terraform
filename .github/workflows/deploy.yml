@@ -26,7 +26,7 @@ jobs:
       - name: Authenticate to GCP
         uses: google-github-actions/auth@v2
         with:
-          credentials_json: ci-cd-sa@terraform-k8s-test-493520.iam.gserviceaccount.com
+          credentials_json: b833355bf756c3435db2845a51fde5c0a20ce05b
 
       # 🔧 Setup gcloud
       - name: Set up Cloud SDK
