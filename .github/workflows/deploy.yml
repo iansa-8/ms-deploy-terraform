@@ -1,1 +1,61 @@
 
+name: Build and Deploy to GKE
+
+on:
+  push:
+    branches:
+      - main
+
+env:
+  PROJECT_ID: terraform-k8s-test-493520
+  REGION: southamerica-west1
+  REPOSITORY: docker-repo
+  IMAGE: app
+  CLUSTER_NAME: k8s-cluster
+  CLUSTER_ZONE: southamerica-west1-b
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # 🔐 Auth con GCP
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ci-cd-sa@terraform-k8s-test-493520.iam.gserviceaccount.com
+
+      # 🔧 Setup gcloud
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      # 🐳 Configurar Docker para Artifact Registry
+      - name: Configure Docker
+        run: |
+          gcloud auth configure-docker $REGION-docker.pkg.dev
+
+      # 🏗️ Build imagen
+      - name: Build Docker image
+        run: |
+          docker build -t $REGION-docker.pkg.dev/$PROJECT_ID/$REPOSITORY/$IMAGE:${{ github.sha }} .
+
+      # 📤 Push a Artifact Registry
+      - name: Push Docker image
+        run: |
+          docker push $REGION-docker.pkg.dev/$PROJECT_ID/$REPOSITORY/$IMAGE:${{ github.sha }}
+
+      # 🔗 Obtener credenciales de GKE
+      - name: Get GKE credentials
+        run: |
+          gcloud container clusters get-credentials $CLUSTER_NAME \
+            --zone $CLUSTER_ZONE \
+            --project $PROJECT_ID
+
+      # 🚢 Deploy a Kubernetes
+      - name: Deploy to GKE
+        run: |
+          kubectl set image deployment/app app=$REGION-docker.pkg.dev/$PROJECT_ID/$REPOSITORY/$IMAGE:${{ github.sha }} || \
+          kubectl apply -f k8s/
