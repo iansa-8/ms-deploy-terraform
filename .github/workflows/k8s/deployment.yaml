@@ -14,6 +14,6 @@ spec:
     spec:
       containers:
         - name: app
-          image: REGION-docker.pkg.dev/PROJECT_ID/docker-repo/app:latest
+          image: REGION-docker.pkg.dev/terraform-k8s-test-493520/docker-repo/app:${{ github.sha }}
           ports:
             - containerPort: 3000
